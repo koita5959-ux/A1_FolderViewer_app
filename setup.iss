@@ -26,7 +26,7 @@ DisableFinishedPage=yes
 Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 
 [Files]
-Source: "publish-light\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+Source: "publish-light\DesktopKit.FolderViewer.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{userprograms}\DesktopKit\FolderViewer"; Filename: "{app}\DesktopKit.FolderViewer.exe"
