@@ -30,7 +30,7 @@ namespace DesktopKit.FolderViewer
             int files = 0;
             AddChildren(rootNode, rootPath, 1, maxDepth, ref folders, ref files);
 
-            rootNode.Expand();
+            rootNode.ExpandAll();
             treeView.EndUpdate();
 
             return (folders, files);
