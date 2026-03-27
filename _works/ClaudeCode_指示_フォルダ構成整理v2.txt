@@ -1,0 +1,95 @@
+全5コンポーネントのフォルダ構成を整理してください。
+
+## ルール：ソースフォルダの外にビルド出力と作業ファイルを置く
+
+ソースコードのフォルダと、ビルド出力・作業メモ・指示書は分離する。
+「テストしてくれ」と言われた人が、exeがどこにあるか迷わない構成にする。
+
+### 変更後の構成（全コンポーネント共通）
+
+```
+A*_xxx_app/
+├── .git/
+├── .gitignore
+├── _works/              ← 指示書・作業メモ置き場（新規作成）
+├── publish/             ← ビルド出力（ソースの外に移動）
+├── build.bat            ← 軽量ビルド用バッチ（新規作成）
+└── xxx/                 ← ソースコードのみ
+    ├── Common/
+    ├── *.cs
+    ├── *.csproj
+    └── Directory.Build.props
+```
+
+### 具体的な作業
+
+#### 1. 全5コンポーネントで publish/ を移動
+
+現在 `A*_xxx_app/xxx/publish/` にあるものを `A*_xxx_app/publish/` に移動する。
+
+対象：
+- A1_FolderViewer_app
+- A2_FolderRename_app
+- A3_Diffchecker_app
+- A4_ImageResize_app
+- A5_FileZip_app
+
+#### 2. 全5コンポーネントで _works/ を作成
+
+`A*_xxx_app/_works/` フォルダを作成する。中にREADME.mdを置く：
+
+```
+# _works
+指示書・作業メモ・参考資料の置き場です。
+```
+
+#### 3. 全5コンポーネントで build.bat を作成
+
+`A*_xxx_app/build.bat` を作成する。内容は各コンポーネントに合わせる：
+
+```bat
+@echo off
+echo === DesktopKit.xxx ビルド＆パブリッシュ ===
+cd %~dp0xxx
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ..\publish\
+echo.
+echo 完了しました。publish\ フォルダにexeがあります。
+pause
+```
+
+※ `xxx` 部分は各コンポーネントのフォルダ名に置き換える：
+- FolderViewer
+- FolderRename
+- Diffchecker
+- ImageResize
+- FileZip
+
+#### 4. .gitignore の更新
+
+各コンポーネントの .gitignore に以下を追加（なければ）：
+```
+publish/
+```
+
+#### 5. dotnet publish の出力先変更を確認
+
+build.bat の `-o ..\publish\` でソースの外に出力されることを確認。
+A1_FolderViewer_app で実際に dotnet publish を実行して publish/DesktopKit.FolderViewer.exe が生成されることをテストする。
+
+#### 6. git commit
+
+全5コンポーネントで：
+```
+git add -A
+git commit -m "フォルダ構成整理: publish・_works・build.batをソース外に配置"
+```
+
+---
+
+## 今後のルール（以降の作業で必ず守ること）
+
+1. **ソースフォルダにはソースコードだけ**を置く。ビルド出力、指示書、作業メモは入れない
+2. **publish/ はソースフォルダの外**（リポジトリルート直下）に出力する
+3. **dotnet publish の -o オプション**は必ず `../publish/` を指定する
+4. **_works/ に指示書や参考資料**を置く
+5. **build.bat でビルド＆パブリッシュ**を1コマンドで実行できるようにする
