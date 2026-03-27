@@ -18,8 +18,11 @@ namespace DesktopKit.FolderViewer
         private TreeView tvFolderTree = null!;
         private Button btnExport = null!;
         private ContextMenuStrip contextMenu = null!;
+        private ImageList treeImageList = null!;
 
         private string _currentRootPath = "";
+        private bool _suppressCheckEvent = false;
+
         private static readonly string SettingsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DesktopKit");
         private static readonly string SettingsFile = Path.Combine(SettingsDir, "FolderViewer.json");
@@ -32,6 +35,11 @@ namespace DesktopKit.FolderViewer
 
         private void InitializeControls()
         {
+            // --- アイコン用ImageList ---
+            treeImageList = new ImageList { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
+            treeImageList.Images.Add(CreateFolderIcon());   // index 0: フォルダ
+            treeImageList.Images.Add(CreateFileIcon());     // index 1: ファイル
+
             // --- 上部パネル: フォルダ選択 + 階層の深さ ---
             var topPanel = new Panel
             {
@@ -78,8 +86,11 @@ namespace DesktopKit.FolderViewer
             // --- 中央: TreeView ---
             tvFolderTree = new TreeView
             {
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
+                CheckBoxes = true,
+                ImageList = treeImageList
             };
+            tvFolderTree.AfterCheck += TvFolderTree_AfterCheck;
 
             // コンテキストメニュー
             contextMenu = new ContextMenuStrip();
@@ -113,6 +124,51 @@ namespace DesktopKit.FolderViewer
             Controls.Add(bottomPanel);
         }
 
+        // --- アイコン生成 ---
+
+        private static Bitmap CreateFolderIcon()
+        {
+            var bmp = new Bitmap(16, 16);
+            using var g = Graphics.FromImage(bmp);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            // フォルダのタブ部分
+            using var brush = new SolidBrush(Color.FromArgb(255, 200, 80));
+            using var pen = new Pen(Color.FromArgb(180, 140, 50));
+            g.FillRectangle(brush, 1, 2, 5, 2);
+            // フォルダ本体
+            g.FillRectangle(brush, 1, 4, 14, 9);
+            g.DrawRectangle(pen, 1, 4, 13, 8);
+            g.DrawLine(pen, 1, 2, 5, 2);
+            g.DrawLine(pen, 5, 2, 6, 4);
+
+            return bmp;
+        }
+
+        private static Bitmap CreateFileIcon()
+        {
+            var bmp = new Bitmap(16, 16);
+            using var g = Graphics.FromImage(bmp);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            // 書類の本体
+            using var brush = new SolidBrush(Color.FromArgb(240, 240, 245));
+            using var pen = new Pen(Color.FromArgb(130, 130, 150));
+            var body = new Point[] { new(3, 1), new(10, 1), new(13, 4), new(13, 14), new(3, 14) };
+            g.FillPolygon(brush, body);
+            g.DrawPolygon(pen, body);
+            // 折り返し部分
+            g.DrawLine(pen, 10, 1, 10, 4);
+            g.DrawLine(pen, 10, 4, 13, 4);
+            // テキスト行（装飾線）
+            using var linePen = new Pen(Color.FromArgb(180, 180, 200));
+            g.DrawLine(linePen, 5, 7, 11, 7);
+            g.DrawLine(linePen, 5, 9, 11, 9);
+            g.DrawLine(linePen, 5, 11, 9, 11);
+
+            return bmp;
+        }
+
         // --- イベントハンドラ ---
 
         private void BtnSelectFolder_Click(object? sender, EventArgs e)
@@ -133,6 +189,33 @@ namespace DesktopKit.FolderViewer
             if (!string.IsNullOrEmpty(_currentRootPath) && Directory.Exists(_currentRootPath))
             {
                 BuildTree();
+            }
+        }
+
+        private void TvFolderTree_AfterCheck(object? sender, TreeViewEventArgs e)
+        {
+            if (_suppressCheckEvent || e.Node == null) return;
+            if (!TreeBuilder.IsFolder(e.Node)) return;
+
+            _suppressCheckEvent = true;
+            try
+            {
+                if (e.Node.Checked)
+                {
+                    // チェックON → 子ノードを構築して展開
+                    int depth = TreeBuilder.GetNodeDepth(e.Node);
+                    TreeBuilder.ExpandCheckedFolder(e.Node, (int)nudDepth.Value, depth + 1);
+                }
+                else
+                {
+                    // チェックOFF → 子ノードを削除して折りたたむ
+                    e.Node.Nodes.Clear();
+                    e.Node.Collapse();
+                }
+            }
+            finally
+            {
+                _suppressCheckEvent = false;
             }
         }
 
@@ -174,7 +257,6 @@ namespace DesktopKit.FolderViewer
                 FileName = defaultFileName
             };
 
-            // 前回の保存先を復元
             var lastDir = LoadLastSaveDirectory();
             if (!string.IsNullOrEmpty(lastDir) && Directory.Exists(lastDir))
             {
@@ -200,8 +282,16 @@ namespace DesktopKit.FolderViewer
 
         private void BuildTree()
         {
-            var (folders, files) = TreeBuilder.Build(tvFolderTree, _currentRootPath, (int)nudDepth.Value);
-            StatusLabel.Text = $"{folders}フォルダ、{files}ファイルを表示中";
+            _suppressCheckEvent = true;
+            try
+            {
+                var (folders, files) = TreeBuilder.Build(tvFolderTree, _currentRootPath, (int)nudDepth.Value);
+                StatusLabel.Text = $"{folders}フォルダ、{files}ファイルを表示中";
+            }
+            finally
+            {
+                _suppressCheckEvent = false;
+            }
         }
 
         // --- 設定の保存・読み込み ---

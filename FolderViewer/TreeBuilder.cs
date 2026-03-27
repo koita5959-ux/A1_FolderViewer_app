@@ -5,24 +5,27 @@ namespace DesktopKit.FolderViewer
 {
     /// <summary>
     /// 指定フォルダからTreeViewノードを構築する。階層制限対応。
+    /// フォルダノードにはチェックボックスを付与し、出力対象の選択を可能にする。
     /// </summary>
     public static class TreeBuilder
     {
+        public const int IconFolder = 0;
+        public const int IconFile = 1;
+
         /// <summary>
         /// 指定パスを起点にTreeViewを構築する。
         /// </summary>
-        /// <param name="treeView">対象のTreeView</param>
-        /// <param name="rootPath">起点フォルダのパス</param>
-        /// <param name="maxDepth">最大階層の深さ</param>
-        /// <returns>フォルダ数とファイル数のタプル</returns>
         public static (int folders, int files) Build(TreeView treeView, string rootPath, int maxDepth)
         {
             treeView.BeginUpdate();
             treeView.Nodes.Clear();
 
-            var rootNode = new TreeNode(Path.GetFileName(rootPath) + @"\")
+            var rootNode = new TreeNode(Path.GetFileName(rootPath))
             {
-                Tag = rootPath
+                Tag = rootPath,
+                Checked = true,
+                ImageIndex = IconFolder,
+                SelectedImageIndex = IconFolder
             };
             treeView.Nodes.Add(rootNode);
 
@@ -36,6 +39,42 @@ namespace DesktopKit.FolderViewer
             return (folders, files);
         }
 
+        /// <summary>
+        /// チェックONになったフォルダノードの子を構築する。
+        /// </summary>
+        public static void ExpandCheckedFolder(TreeNode folderNode, int maxDepth, int currentDepth)
+        {
+            if (folderNode.Tag is not string dirPath) return;
+
+            folderNode.Nodes.Clear();
+            int folders = 0, files = 0;
+            AddChildren(folderNode, dirPath, currentDepth, maxDepth, ref folders, ref files);
+            folderNode.ExpandAll();
+        }
+
+        /// <summary>
+        /// ノードの階層深さ（ルート=0）を返す。
+        /// </summary>
+        public static int GetNodeDepth(TreeNode node)
+        {
+            int depth = 0;
+            var current = node.Parent;
+            while (current != null)
+            {
+                depth++;
+                current = current.Parent;
+            }
+            return depth;
+        }
+
+        /// <summary>
+        /// ノードがフォルダかどうかを判定する。
+        /// </summary>
+        public static bool IsFolder(TreeNode node)
+        {
+            return node.ImageIndex == IconFolder;
+        }
+
         private static void AddChildren(TreeNode parentNode, string dirPath, int currentDepth, int maxDepth, ref int folders, ref int files)
         {
             // フォルダを追加
@@ -43,8 +82,14 @@ namespace DesktopKit.FolderViewer
             {
                 foreach (var dir in Directory.GetDirectories(dirPath))
                 {
-                    var dirName = Path.GetFileName(dir) + @"\";
-                    var node = new TreeNode(dirName) { Tag = dir };
+                    var dirName = Path.GetFileName(dir);
+                    var node = new TreeNode(dirName)
+                    {
+                        Tag = dir,
+                        Checked = true,
+                        ImageIndex = IconFolder,
+                        SelectedImageIndex = IconFolder
+                    };
                     parentNode.Nodes.Add(node);
                     folders++;
 
@@ -63,7 +108,12 @@ namespace DesktopKit.FolderViewer
                 foreach (var file in Directory.GetFiles(dirPath))
                 {
                     var fileName = Path.GetFileName(file);
-                    var node = new TreeNode(fileName) { Tag = file };
+                    var node = new TreeNode(fileName)
+                    {
+                        Tag = file,
+                        ImageIndex = IconFile,
+                        SelectedImageIndex = IconFile
+                    };
                     parentNode.Nodes.Add(node);
                     files++;
                 }

@@ -5,13 +5,13 @@ using System.Windows.Forms;
 namespace DesktopKit.FolderViewer
 {
     /// <summary>
-    /// 展開済みノードからツリー形式テキスト＋フルパス一覧を生成する。
+    /// TreeViewからツリー形式テキスト＋フルパス一覧を生成する。
+    /// チェックOFFのフォルダは名前のみ出力し、子の展開はしない。
     /// </summary>
     public static class TreeExporter
     {
         /// <summary>
         /// TreeViewの内容をテキストファイルに書き出す。
-        /// ツリー構造セクションとフルパス一覧セクションの2部構成。
         /// </summary>
         public static void Export(TreeView treeView, string outputPath)
         {
@@ -24,8 +24,8 @@ namespace DesktopKit.FolderViewer
             {
                 var rootNode = treeView.Nodes[0];
                 var rootPath = rootNode.Tag as string ?? "";
-                sb.AppendLine(rootPath + @"\");
-                BuildTreeText(rootNode, "", true, sb, fullPaths);
+                sb.AppendLine(rootPath + Path.DirectorySeparatorChar);
+                BuildTreeText(rootNode, "", sb, fullPaths);
             }
 
             sb.AppendLine();
@@ -38,7 +38,7 @@ namespace DesktopKit.FolderViewer
             File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
         }
 
-        private static void BuildTreeText(TreeNode parentNode, string indent, bool isRoot, StringBuilder sb, List<string> fullPaths)
+        private static void BuildTreeText(TreeNode parentNode, string indent, StringBuilder sb, List<string> fullPaths)
         {
             for (int i = 0; i < parentNode.Nodes.Count; i++)
             {
@@ -47,21 +47,25 @@ namespace DesktopKit.FolderViewer
                 var connector = isLast ? "└── " : "├── ";
                 var childIndent = indent + (isLast ? "    " : "│   ");
 
+                bool isFolder = TreeBuilder.IsFolder(node);
+
                 sb.AppendLine(indent + connector + node.Text);
 
-                var tag = node.Tag as string;
-                if (tag != null)
+                if (isFolder)
                 {
-                    // ファイルのみフルパス一覧に追加（末尾に\がないもの）
-                    if (!node.Text.EndsWith(@"\"))
+                    // チェックONのフォルダのみ子を出力
+                    if (node.Checked && node.Nodes.Count > 0)
                     {
-                        fullPaths.Add(tag);
+                        BuildTreeText(node, childIndent, sb, fullPaths);
                     }
                 }
-
-                if (node.Nodes.Count > 0)
+                else
                 {
-                    BuildTreeText(node, childIndent, false, sb, fullPaths);
+                    // ファイルはフルパス一覧に追加
+                    if (node.Tag is string filePath)
+                    {
+                        fullPaths.Add(filePath);
+                    }
                 }
             }
         }
