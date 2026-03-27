@@ -35,6 +35,7 @@ namespace DesktopKit.FolderViewer
             {
                 sb.AppendLine();
                 sb.AppendLine("--- フルパス一覧 ---");
+                fullPaths.Sort(StringComparer.CurrentCulture);
                 foreach (var path in fullPaths)
                 {
                     sb.AppendLine(path);
