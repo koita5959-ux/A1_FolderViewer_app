@@ -1,6 +1,8 @@
-using DesktopKit.Common;
-using System.Windows.Forms;
 using System.Drawing;
+using System.IO;
+using System.Text.Json;
+using System.Windows.Forms;
+using DesktopKit.Common;
 
 namespace DesktopKit.FolderViewer
 {
@@ -15,10 +17,13 @@ namespace DesktopKit.FolderViewer
         private NumericUpDown nudDepth = null!;
         private TreeView tvFolderTree = null!;
         private Button btnExport = null!;
+        private ContextMenuStrip contextMenu = null!;
 
-        /// <summary>
-        /// MainFormのコンストラクタ。
-        /// </summary>
+        private string _currentRootPath = "";
+        private static readonly string SettingsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DesktopKit");
+        private static readonly string SettingsFile = Path.Combine(SettingsDir, "FolderViewer.json");
+
         public MainForm()
         {
             ComponentName = "FolderViewer";
@@ -41,6 +46,7 @@ namespace DesktopKit.FolderViewer
                 Location = new Point(10, 8),
                 Size = new Size(120, 28)
             };
+            btnSelectFolder.Click += BtnSelectFolder_Click;
 
             txtFolderPath = new TextBox
             {
@@ -65,6 +71,7 @@ namespace DesktopKit.FolderViewer
                 Location = new Point(110, 40),
                 Size = new Size(60, 23)
             };
+            nudDepth.ValueChanged += NudDepth_ValueChanged;
 
             topPanel.Controls.AddRange(new Control[] { btnSelectFolder, txtFolderPath, lblDepth, nudDepth });
 
@@ -74,7 +81,14 @@ namespace DesktopKit.FolderViewer
                 Dock = DockStyle.Fill
             };
 
-            // --- 下部パネル: 書き出しボタン ---
+            // コンテキストメニュー
+            contextMenu = new ContextMenuStrip();
+            var menuItem = new ToolStripMenuItem("ここを起点にする");
+            menuItem.Click += MenuSetRoot_Click;
+            contextMenu.Items.Add(menuItem);
+            tvFolderTree.MouseDown += TvFolderTree_MouseDown;
+
+            // --- 下部パネル: 書き出しボタン（右寄せ） ---
             var bottomPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
@@ -85,9 +99,11 @@ namespace DesktopKit.FolderViewer
             btnExport = new Button
             {
                 Text = "書き出し",
-                Location = new Point(10, 8),
-                Size = new Size(100, 28)
+                Size = new Size(100, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
+            btnExport.Location = new Point(bottomPanel.ClientSize.Width - bottomPanel.Padding.Right - btnExport.Width, 8);
+            btnExport.Click += BtnExport_Click;
 
             bottomPanel.Controls.Add(btnExport);
 
@@ -95,6 +111,126 @@ namespace DesktopKit.FolderViewer
             Controls.Add(tvFolderTree);
             Controls.Add(topPanel);
             Controls.Add(bottomPanel);
+        }
+
+        // --- イベントハンドラ ---
+
+        private void BtnSelectFolder_Click(object? sender, EventArgs e)
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = "表示するフォルダを選択してください"
+            };
+
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                SetRootAndBuild(dialog.SelectedPath);
+            }
+        }
+
+        private void NudDepth_ValueChanged(object? sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(_currentRootPath) && Directory.Exists(_currentRootPath))
+            {
+                BuildTree();
+            }
+        }
+
+        private void TvFolderTree_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                var hitNode = tvFolderTree.GetNodeAt(e.X, e.Y);
+                if (hitNode != null && hitNode.Tag is string path && Directory.Exists(path))
+                {
+                    tvFolderTree.SelectedNode = hitNode;
+                    contextMenu.Show(tvFolderTree, e.Location);
+                }
+            }
+        }
+
+        private void MenuSetRoot_Click(object? sender, EventArgs e)
+        {
+            if (tvFolderTree.SelectedNode?.Tag is string path && Directory.Exists(path))
+            {
+                SetRootAndBuild(path);
+            }
+        }
+
+        private void BtnExport_Click(object? sender, EventArgs e)
+        {
+            if (tvFolderTree.Nodes.Count == 0)
+            {
+                MessageBox.Show("先にフォルダを選択してください。", "FolderViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var folderName = Path.GetFileName(_currentRootPath);
+            var defaultFileName = $"{folderName}_構造_{DateTime.Now:yyyyMMdd}.txt";
+
+            using var dialog = new SaveFileDialog
+            {
+                Filter = "テキストファイル (*.txt)|*.txt|すべてのファイル (*.*)|*.*",
+                FileName = defaultFileName
+            };
+
+            // 前回の保存先を復元
+            var lastDir = LoadLastSaveDirectory();
+            if (!string.IsNullOrEmpty(lastDir) && Directory.Exists(lastDir))
+            {
+                dialog.InitialDirectory = lastDir;
+            }
+
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                TreeExporter.Export(tvFolderTree, dialog.FileName);
+                SaveLastSaveDirectory(Path.GetDirectoryName(dialog.FileName) ?? "");
+                StatusLabel.Text = $"書き出し完了: {dialog.FileName}";
+            }
+        }
+
+        // --- ヘルパー ---
+
+        private void SetRootAndBuild(string rootPath)
+        {
+            _currentRootPath = rootPath;
+            txtFolderPath.Text = rootPath;
+            BuildTree();
+        }
+
+        private void BuildTree()
+        {
+            var (folders, files) = TreeBuilder.Build(tvFolderTree, _currentRootPath, (int)nudDepth.Value);
+            StatusLabel.Text = $"{folders}フォルダ、{files}ファイルを表示中";
+        }
+
+        // --- 設定の保存・読み込み ---
+
+        private string? LoadLastSaveDirectory()
+        {
+            try
+            {
+                if (File.Exists(SettingsFile))
+                {
+                    var json = File.ReadAllText(SettingsFile);
+                    var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                    if (dict != null && dict.TryGetValue("LastSaveDirectory", out var dir))
+                        return dir;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private void SaveLastSaveDirectory(string directory)
+        {
+            try
+            {
+                Directory.CreateDirectory(SettingsDir);
+                var dict = new Dictionary<string, string> { ["LastSaveDirectory"] = directory };
+                File.WriteAllText(SettingsFile, JsonSerializer.Serialize(dict));
+            }
+            catch { }
         }
     }
 }
