@@ -6,14 +6,17 @@ namespace DesktopKit.FolderViewer
 {
     /// <summary>
     /// TreeViewからツリー形式テキスト＋フルパス一覧を生成する。
-    /// チェックOFFのフォルダは名前のみ出力し、子の展開はしない。
+    /// チェックOFFのフォルダは「（省略）」付きで出力し、子の展開はしない。
     /// </summary>
     public static class TreeExporter
     {
         /// <summary>
         /// TreeViewの内容をテキストファイルに書き出す。
         /// </summary>
-        public static void Export(TreeView treeView, string outputPath)
+        /// <param name="treeView">対象のTreeView</param>
+        /// <param name="outputPath">出力ファイルパス</param>
+        /// <param name="includeFullPaths">フルパス一覧セクションを含めるか</param>
+        public static void Export(TreeView treeView, string outputPath, bool includeFullPaths)
         {
             var sb = new StringBuilder();
             var fullPaths = new List<string>();
@@ -28,11 +31,14 @@ namespace DesktopKit.FolderViewer
                 BuildTreeText(rootNode, "", sb, fullPaths);
             }
 
-            sb.AppendLine();
-            sb.AppendLine("--- フルパス一覧 ---");
-            foreach (var path in fullPaths)
+            if (includeFullPaths)
             {
-                sb.AppendLine(path);
+                sb.AppendLine();
+                sb.AppendLine("--- フルパス一覧 ---");
+                foreach (var path in fullPaths)
+                {
+                    sb.AppendLine(path);
+                }
             }
 
             File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
@@ -49,19 +55,24 @@ namespace DesktopKit.FolderViewer
 
                 bool isFolder = TreeBuilder.IsFolder(node);
 
-                sb.AppendLine(indent + connector + node.Text);
-
                 if (isFolder)
                 {
-                    // チェックONのフォルダのみ子を出力
                     if (node.Checked && node.Nodes.Count > 0)
                     {
+                        // チェックON → フォルダ名を出力し、子を再帰展開
+                        sb.AppendLine(indent + connector + node.Text);
                         BuildTreeText(node, childIndent, sb, fullPaths);
+                    }
+                    else
+                    {
+                        // チェックOFF → フォルダ名＋（省略）を出力、子は展開しない
+                        sb.AppendLine(indent + connector + node.Text + "（省略）");
                     }
                 }
                 else
                 {
-                    // ファイルはフルパス一覧に追加
+                    // ファイル
+                    sb.AppendLine(indent + connector + node.Text);
                     if (node.Tag is string filePath)
                     {
                         fullPaths.Add(filePath);

@@ -42,6 +42,7 @@ namespace DesktopKit.FolderViewer
         private NumericUpDown nudDepth = null!;
         private TreeView tvFolderTree = null!;
         private Button btnExport = null!;
+        private CheckBox chkFullPaths = null!;
         private ContextMenuStrip contextMenu = null!;
         private ImageList treeImageList = null!;
 
@@ -124,12 +125,20 @@ namespace DesktopKit.FolderViewer
             contextMenu.Items.Add(menuItem);
             tvFolderTree.MouseDown += TvFolderTree_MouseDown;
 
-            // --- 下部パネル: 書き出しボタン（右寄せ） ---
+            // --- 下部パネル: オプション + 書き出しボタン（右寄せ） ---
             var bottomPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
                 Height = 45,
                 Padding = new Padding(10, 5, 10, 5)
+            };
+
+            chkFullPaths = new CheckBox
+            {
+                Text = "フルパス一覧を含める",
+                Location = new Point(10, 11),
+                AutoSize = true,
+                Checked = true
             };
 
             btnExport = new Button
@@ -141,7 +150,7 @@ namespace DesktopKit.FolderViewer
             btnExport.Location = new Point(bottomPanel.ClientSize.Width - bottomPanel.Padding.Right - btnExport.Width, 8);
             btnExport.Click += BtnExport_Click;
 
-            bottomPanel.Controls.Add(btnExport);
+            bottomPanel.Controls.AddRange(new Control[] { chkFullPaths, btnExport });
 
             // --- フォームに追加（順序重要: Fill は最後に追加） ---
             Controls.Add(tvFolderTree);
@@ -291,7 +300,7 @@ namespace DesktopKit.FolderViewer
 
             if (dialog.ShowDialog() == DialogResult.OK)
             {
-                TreeExporter.Export(tvFolderTree, dialog.FileName);
+                TreeExporter.Export(tvFolderTree, dialog.FileName, chkFullPaths.Checked);
                 SaveLastSaveDirectory(Path.GetDirectoryName(dialog.FileName) ?? "");
                 StatusLabel.Text = $"書き出し完了: {dialog.FileName}";
             }
