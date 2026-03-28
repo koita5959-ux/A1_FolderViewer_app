@@ -29,7 +29,7 @@ Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 [Files]
 Source: "publish\DesktopKit.FolderViewer.exe"; DestDir: "{app}"; DestName: "FolderViewer.exe"; Flags: ignoreversion
 Source: "_works\FolderViewer1.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "ご利用にあたって.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "ご利用ガイド.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\FolderViewer"; Filename: "{app}\FolderViewer.exe"; IconFilename: "{app}\FolderViewer1.ico"
