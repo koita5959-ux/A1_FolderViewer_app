@@ -219,9 +219,14 @@ begin
   else
     LblDescUninstall.Font.Color := COLOR_DESC_DISABLED;
 
-  RadioInstallBoth.Checked := True;
+  RadioInstallBoth.Checked := False;
   RadioInstallApp.Checked := False;
   RadioUninstall.Checked := False;
+
+  if DetectedRuntimeStatus = 0 then
+    RadioInstallBoth.Checked := True
+  else
+    RadioInstallApp.Checked := True;
 end;
 
 // ========== ウィザードUI構築 ==========
