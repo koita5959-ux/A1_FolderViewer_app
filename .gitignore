@@ -4,3 +4,7 @@ obj/
 .vs/
 
 publish/
+installer/
+
+# ランタイムインストーラー（サイズが大きいためGit管理外）
+windowsdesktop-runtime-*.exe

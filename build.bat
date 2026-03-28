@@ -28,5 +28,5 @@ if errorlevel 1 (
 echo.
 echo ビルド完了しました。
 echo   exe: publish\DesktopKit.FolderViewer.exe
-echo   インストーラー: installer\FolderViewer_Setup_v1.00.exe
+echo   インストーラー: installer\FolderViewer_Setup_v1.01.exe
 pause

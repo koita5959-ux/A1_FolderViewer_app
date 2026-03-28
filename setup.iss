@@ -1,13 +1,13 @@
 ﻿[Setup]
 AppId=DesktopKit_FolderViewer
 AppName=FolderViewer
-AppVersion=1.00
+AppVersion=1.01
 AppPublisher=便利アプリシリーズ
 DefaultDirName={autopf}\FolderViewer
 DefaultGroupName=FolderViewer
 DisableProgramGroupPage=yes
 OutputDir=installer
-OutputBaseFilename=FolderViewer_Setup_v1.00
+OutputBaseFilename=FolderViewer_Setup_v1.01
 Compression=lzma
 SolidCompression=yes
 UninstallDisplayName=FolderViewer
