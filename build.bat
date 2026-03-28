@@ -37,9 +37,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Step 4: 中間ファイル削除（publish/・installer/）
+echo.
+echo [Step 4] 中間ファイル削除中...
+cd %~dp0
+if exist publish rd /s /q publish
+if exist installer rd /s /q installer
+
 echo.
 echo ビルド完了しました。
-echo   exe: publish\DesktopKit.FolderViewer.exe
-echo   インストーラー: installer\FolderViewer_Setup_v1.01.exe
 echo   配布ZIP: FolderViewer1.01_installer.zip
 pause
